@@ -7,9 +7,6 @@
  Description @ config
 """
 
-import tensorflow as tf
-from tensorflow.contrib import rnn
-
 
 class ModelConfig:
     """
@@ -31,9 +28,12 @@ class ModelConfig:
 
     # 使用何种模型
     model = 'gru'
-    bi_directional = True
 
     # 数据位置
     training_data = 'data/training_data.txt'
     test_data = 'data/test_data.txt'
     predict_data = 'data/predict_data.txt'
+
+    # model path
+    save_model_path = "model/train_model.ckpt"
+    load_model_path = "model/train_model.ckpt"
