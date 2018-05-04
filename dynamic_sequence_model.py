@@ -9,6 +9,10 @@
 
 from __future__ import print_function
 
+# gpu使用
+# import os
+# os.environ['CUDA_VISIBLE_DEVICES']='1,2'
+
 import tensorflow as tf
 from tensorflow.contrib import rnn
 
@@ -119,6 +123,7 @@ class DynamicSequenceModel:
         :param session: 
         :return: 
         """
+
         training_set = SequenceData(filename=self.conf.training_data, max_seq_len=self.seq_max_len)
         for step in range(1, self.conf.training_steps + 1):
             batch_x, batch_y, batch_seqlen = training_set.next(self.conf.batch_size)
@@ -135,13 +140,21 @@ class DynamicSequenceModel:
                       "{:.6f}".format(loss) + ", Training Accuracy= " + \
                       "{:.5f}".format(acc))
         print("Optimization Finished!")
+        print('Start to save model.')
+        saver = tf.train.Saver()
+        saver.save(session, self.conf.save_model_path)
 
-    def test(self, session):
+    def test(self, session, load_model=False):
         """
         测试函数
         :param session: 
+        :param load_model: 是否加载模型
         :return: 
         """
+        if load_model:
+            print('Start to load model.')
+            saver = tf.train.Saver()
+            saver.restore(session, self.conf.load_model_path)
         test_set = SequenceData(filename=self.conf.test_data, max_seq_len=self.seq_max_len)
         test_data = test_set.data
         test_label = test_set.labels
@@ -150,12 +163,18 @@ class DynamicSequenceModel:
               session.run(self.accuracy_op, feed_dict={self.X: test_data, self.Y: test_label,
                                                        self.seqlen: test_seqlen}))
 
-    def predict(self, session):
+    def predict(self, session, load_model=False):
         """
         预测函数
         :param session: 
+        :param load_model: 是否加载模型
         :return: 
         """
+        if load_model:
+            print('Start to load model.')
+            saver = tf.train.Saver()
+            saver.restore(session, self.conf.load_model_path)
+
         predict_set = SequenceData(filename=self.conf.predict_data, max_seq_len=self.seq_max_len)
         predict_result = session.run(self.predict_op, feed_dict={self.X: predict_set.data,
                                                                  self.seqlen: predict_set.seqlen})
@@ -178,7 +197,7 @@ class DynamicSequenceModel:
             session.run(init)
 
             self.train(session)
-            self.test(session)
+            self.test(session, load_model=True)
             self.predict(session)
 
 
