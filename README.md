@@ -1,7 +1,7 @@
 # Dynamic-RNN-LSTM-GRU
 基于tensorflow的动态双向rnn, lstm及gru的实现
 
-Implementation of dynamic rnn, lstm and gru based on tensorflow
+Implementation of dynamic bi_directional rnn, lstm and gru based on tensorflow
 
 
 ## 当前功能
