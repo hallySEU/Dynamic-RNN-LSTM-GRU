@@ -29,6 +29,12 @@ class ModelConfig:
     # 使用何种模型
     model = 'gru'
 
+    # 是否使用双向cell
+    use_bi_directional = False
+
+    # 0 <= dropout <= 1
+    dropout_keep_prob = 0.75
+
     # 数据位置
     training_data = 'data/training_data.txt'
     test_data = 'data/test_data.txt'
