@@ -10,7 +10,6 @@ Implementation of dynamic rnn, lstm and gru based on tensorflow
 - [x] 根据训练数据动态适配模型参数
 - [x] 支持双向rnn等
 - [x] 支持dropout层
-- [x] 提供训练
 
 
 ## 运行
