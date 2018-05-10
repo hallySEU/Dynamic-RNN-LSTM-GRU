@@ -1,5 +1,5 @@
 # Dynamic-RNN-LSTM-GRU
-基于tensorflow的动态rnn, lstm及gru的实现
+基于tensorflow的动态双向rnn, lstm及gru的实现
 
 Implementation of dynamic rnn, lstm and gru based on tensorflow
 
@@ -8,7 +8,10 @@ Implementation of dynamic rnn, lstm and gru based on tensorflow
 - [x] 支持特征序列长度不一致
 - [x] 支持rnn, lstm, gru三种模型配置
 - [x] 根据训练数据动态适配模型参数
-- [ ] 暂不支持双向rnn等
+- [x] 支持双向rnn等
+- [x] 支持dropout层
+- [x] 提供训练
+
 
 ## 运行
 ```
