@@ -36,6 +36,7 @@ class DynamicSequenceModel:
         self.X = tf.placeholder(tf.float32, [None, self.seq_max_len, self.input_size])
         self.Y = tf.placeholder(tf.float32, [None, self.num_class])
 
+        self.dropout_keep_prob = tf.placeholder(tf.float32)
         # A placeholder for indicating each sequence length
         self.seqlen = tf.placeholder(tf.int32, [None])
 
@@ -44,6 +45,11 @@ class DynamicSequenceModel:
         }
         self.weights = {
             'out': tf.Variable(tf.random_normal([self.conf.num_hidden, self.num_class]))
+        }
+
+        # 针对双向cell
+        self.bi_weights = {
+            'out': tf.Variable(tf.random_normal([self.conf.num_hidden * 2, self.num_class]))
         }
 
     def cell_operation(self, X):
@@ -66,14 +72,33 @@ class DynamicSequenceModel:
         else:
             raise Exception("model type not supported: {}".format(self.conf.model))
 
-        print('Use %s model.' % self.conf.model)
-        # Define a lstm cell with tensorflow
-        cell = cell_func(self.conf.num_hidden)
+        print('Use %s model, use bi_directional cell: %s.' % (self.conf.model, self.conf.use_bi_directional))
 
-        # Get lstm cell output, providing 'sequence_length' will perform dynamic
-        # calculation.
-        outputs, states = tf.contrib.rnn.static_rnn(cell, x, dtype=tf.float32,
-                                                    sequence_length=self.seqlen)
+        if self.conf.use_bi_directional:
+            # Forward direction cell
+            fw_cell = cell_func(self.conf.num_hidden)
+            fw_cell = rnn.DropoutWrapper(fw_cell, output_keep_prob=self.dropout_keep_prob)
+            # Backward direction cell
+            bw_cell = cell_func(self.conf.num_hidden)
+            bw_cell = rnn.DropoutWrapper(bw_cell, output_keep_prob=self.dropout_keep_prob)
+            # Get bi-cell output
+            try:
+                outputs, _, _ = rnn.static_bidirectional_rnn(fw_cell, bw_cell, x,
+                                                             dtype=tf.float32,
+                                                             sequence_length=self.seqlen)
+            except Exception:  # Old TensorFlow version only returns outputs not states
+                outputs = rnn.static_bidirectional_rnn(fw_cell, bw_cell, x,
+                                                       dtype=tf.float32,
+                                                       sequence_length=self.seqlen)
+        else:
+            # Define a cell with tensorflow
+            # Get cell output, providing 'sequence_length' will perform dynamic calculation.
+
+            cell = cell_func(self.conf.num_hidden)
+            cell = rnn.DropoutWrapper(cell, output_keep_prob=self.dropout_keep_prob)
+
+            outputs, states = rnn.static_rnn(cell, x, dtype=tf.float32,
+                                             sequence_length=self.seqlen)
 
         # When performing dynamic calculation, we must retrieve the last
         # dynamically computed output, i.e., if a sequence length is 10, we need
@@ -84,6 +109,7 @@ class DynamicSequenceModel:
 
         # 'outputs' is a list of output at every timestep, we pack them in a Tensor
         # and change back dimension to [batch_size, n_step, n_hidden]
+        # if cell is bi-directional, then change back dimension to [batch_size, n_step, n_hidden*2]
         outputs = tf.stack(outputs)
         outputs = tf.transpose(outputs, [1, 0, 2])
 
@@ -93,11 +119,15 @@ class DynamicSequenceModel:
         # 获取按batch_size展开后，每一个sample的最后seq序列
         # 例如：seqlen = [5, 7, 9, 11], seq_max_len = 20, 则 index = [4 26 48 70]
         index = tf.range(0, batch_size) * self.seq_max_len + (self.seqlen - 1)
-        # Indexing
-        outputs = tf.gather(tf.reshape(outputs, [-1, self.conf.num_hidden]), index)
 
-        # Linear activation, using outputs computed above
-        return tf.matmul(outputs, self.weights['out']) + self.biases['out']
+        if self.conf.use_bi_directional:
+            # Indexing
+            outputs = tf.gather(tf.reshape(outputs, [-1, self.conf.num_hidden * 2]), index)
+            # Linear activation, using outputs computed above
+            return tf.matmul(outputs, self.bi_weights['out']) + self.biases['out']
+        else:
+            outputs = tf.gather(tf.reshape(outputs, [-1, self.conf.num_hidden]), index)
+            return tf.matmul(outputs, self.weights['out']) + self.biases['out']
 
     def define_operator(self):
         """
@@ -130,12 +160,14 @@ class DynamicSequenceModel:
             # Run optimization op (backprop)
             session.run(self.optimizer_op,
                         feed_dict={self.X: batch_x, self.Y: batch_y,
-                        self.seqlen: batch_seqlen})
+                                   self.seqlen: batch_seqlen,
+                                   self.dropout_keep_prob: self.conf.dropout_keep_prob})
             if step % self.conf.display_steps == 0 or step == 1:
                 # Calculate batch accuracy & loss
                 acc, loss = session.run([self.accuracy_op, self.loss_op],
                                         feed_dict={self.X: batch_x, self.Y: batch_y,
-                                                   self.seqlen: batch_seqlen})
+                                                   self.seqlen: batch_seqlen,
+                                                   self.dropout_keep_prob: self.conf.dropout_keep_prob})
                 print("Step " + str(step) + ", Minibatch Loss= " + \
                       "{:.6f}".format(loss) + ", Training Accuracy= " + \
                       "{:.5f}".format(acc))
@@ -161,7 +193,8 @@ class DynamicSequenceModel:
         test_seqlen = test_set.seqlen
         print("Testing Accuracy:", \
               session.run(self.accuracy_op, feed_dict={self.X: test_data, self.Y: test_label,
-                                                       self.seqlen: test_seqlen}))
+                                                       self.seqlen: test_seqlen,
+                                                       self.dropout_keep_prob: 1.0}))
 
     def predict(self, session, load_model=False):
         """
@@ -177,7 +210,8 @@ class DynamicSequenceModel:
 
         predict_set = SequenceData(filename=self.conf.predict_data, max_seq_len=self.seq_max_len)
         predict_result = session.run(self.predict_op, feed_dict={self.X: predict_set.data,
-                                                                 self.seqlen: predict_set.seqlen})
+                                                                 self.seqlen: predict_set.seqlen,
+                                                                 self.dropout_keep_prob: 1.0})
         predict_result_list = []
         for predict_index in predict_result:
             result = [0] * self.num_class
