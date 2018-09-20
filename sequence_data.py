@@ -36,11 +36,11 @@ def cal_model_para(filename):
             max_seq_len = cur_seq_len
 
     if max_seq_len % 10 != 0:
-        max_seq_len = ((max_seq_len / 10) + 1) * 10
+        max_seq_len = (int(max_seq_len / 10) + 1) * 10
 
-    print 'According to "%s", seq_max_len is set to %d, ' \
+    print('According to "%s", seq_max_len is set to %d, ' \
           'input_size is set to %d, num_class is set to %d.' \
-          % (filename, max_seq_len, input_size, num_class)
+          % (filename, max_seq_len, input_size, num_class))
     return max_seq_len, input_size, num_class
 
 
