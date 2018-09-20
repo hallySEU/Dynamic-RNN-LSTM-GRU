@@ -16,6 +16,8 @@ from __future__ import print_function
 import tensorflow as tf
 from tensorflow.contrib import rnn
 
+import indicator
+
 from model_config import ModelConfig
 from sequence_data import SequenceData
 from sequence_data import cal_model_para
@@ -29,7 +31,8 @@ class DynamicSequenceModel:
         self.conf = ModelConfig()
         self.seq_max_len, self.input_size, self.num_class = cal_model_para(filename=self.conf.training_data)
         self._init_varible()
-        self.loss_op, self.optimizer_op, self.accuracy_op, self.predict_op = self.define_operator()
+        self.loss_op, self.optimizer_op, self.accuracy_op, self.predict_op, \
+            self.predict_pro_op = self.define_operator()
 
     def _init_varible(self):
 
@@ -136,6 +139,7 @@ class DynamicSequenceModel:
         """
         logits = self.cell_operation(self.X)
         y_ = tf.nn.softmax(logits)
+        predict_pro_op = y_
         predict_op = tf.argmax(y_, 1)
         # Define loss and optimizer
         loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=self.Y))
@@ -145,7 +149,7 @@ class DynamicSequenceModel:
         correct_pred = tf.equal(tf.argmax(y_, 1), tf.argmax(self.Y, 1))
         accuracy_op = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
-        return [loss_op, optimizer_op, accuracy_op, predict_op]
+        return [loss_op, optimizer_op, accuracy_op, predict_op, predict_pro_op]
 
     def train(self, session):
         """
@@ -191,10 +195,20 @@ class DynamicSequenceModel:
         test_data = test_set.data
         test_label = test_set.labels
         test_seqlen = test_set.seqlen
+
         print("Testing Accuracy:", \
               session.run(self.accuracy_op, feed_dict={self.X: test_data, self.Y: test_label,
                                                        self.seqlen: test_seqlen,
                                                        self.dropout_keep_prob: 1.0}))
+        print("Testing PR:\n")
+        # 准召结果
+        y_list = [label.index(1) for label in test_label]
+        predict_pro = session.run(self.predict_pro_op, feed_dict={self.X: test_data,
+                                                                  self.seqlen: test_seqlen,
+                                                                  self.dropout_keep_prob: 1.0})
+
+        y_pre_list = indicator.threshold_judge_by_y_index(pro_list=predict_pro, axis=1, threshold=0.5)
+        indicator.cal_precision_recall_F1(y_list, y_pre_list)
 
     def predict(self, session, load_model=False):
         """
