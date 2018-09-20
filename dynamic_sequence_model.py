@@ -200,7 +200,7 @@ class DynamicSequenceModel:
               session.run(self.accuracy_op, feed_dict={self.X: test_data, self.Y: test_label,
                                                        self.seqlen: test_seqlen,
                                                        self.dropout_keep_prob: 1.0}))
-        print("Testing PR:\n")
+        print("Testing PR:")
         # 准召结果
         y_list = [label.index(1) for label in test_label]
         predict_pro = session.run(self.predict_pro_op, feed_dict={self.X: test_data,
