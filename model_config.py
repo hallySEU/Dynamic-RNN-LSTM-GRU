@@ -32,7 +32,7 @@ class ModelConfig:
     # 是否使用双向cell
     use_bi_directional = False
 
-    # 0 <= dropout <= 1
+    # 0 <= dropout <= 1； 1表示参数都保存，0表示都不保存
     dropout_keep_prob = 0.75
 
     # 数据位置
